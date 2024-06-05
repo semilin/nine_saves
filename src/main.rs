@@ -283,7 +283,7 @@ impl Application for NineSaves {
                             None => "selected save",
                         })
                         .style(theme::Container::Box),
-                        text(" to slot "),
+                        text(" to "),
                         container(match self.slot_selected {
                             Some(slot) => &self.data.slots[slot].name,
                             None => "selected slot",
