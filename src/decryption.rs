@@ -19,7 +19,7 @@ impl Save {
 }
 
 fn decrypt(data: &[u8]) -> Result<Vec<u8>> {
-    let ciphertext = BASE64_STANDARD.decode(&data)?;
+    let ciphertext = BASE64_STANDARD.decode(data)?;
     let cipher = Cipher::new_128(&KEY);
     let decrypted = cipher.cbc_decrypt(&KEY, &ciphertext[..]);
     Ok(decrypted)
