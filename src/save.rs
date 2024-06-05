@@ -41,8 +41,40 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
     }
 }
 
-fn backup_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
-    Ok(base_dirs.data_dir().join("nine_saves").join("backups"))
+fn saves_from_dir(dir: &Path) -> Result<Vec<Save>> {
+    Ok(fs::read_dir(&dir)
+        .context("couldn't read external saves directory")?
+        .filter_map(|x| match x {
+            Ok(x) => Some(x),
+            Err(_) => None,
+        })
+        .filter_map(|p| {
+            let name = p.file_name().into_string();
+            match name {
+                Ok(n) => Some((n, p.path().to_owned())),
+                Err(_) => None,
+            }
+        })
+        .filter_map(|(name, path)| match path.is_dir() {
+            true => Some(Save {
+                name,
+                path,
+                nrp_backup: false,
+                info: None,
+            }),
+            false => None,
+        })
+        .map(|s| {
+            s.clone()
+                .with_decrypted_info()
+                .with_context(|| format!("couldn't decrypt info for save {:?}", &s))
+                .unwrap()
+        })
+        .collect())
+}
+
+fn data_dir(base_dirs: &BaseDirs) -> Result<PathBuf> {
+    Ok(base_dirs.data_dir().join("nine_saves"))
 }
 
 #[derive(Clone, Debug)]
@@ -68,9 +100,11 @@ pub struct SaveInfo {
 #[derive(Debug, Default)]
 pub struct SavesData {
     pub game_slots_dir: PathBuf,
+    pub external_saves_dir: PathBuf,
     pub backups_dir: PathBuf,
     pub slots: Vec<Save>,
     pub saves: Vec<Save>,
+    pub backups: Vec<Save>,
 }
 
 impl Save {
@@ -81,7 +115,7 @@ impl Save {
             ..self
         })
     }
-    pub fn copy(&self, destination: &Path, name: String) -> Result<Self> {
+    pub fn copy(&self, destination: &Path) -> Result<()> {
         fs::create_dir_all(destination).with_context(|| {
             format!("couldn't create destination directory ({:?})", destination)
         })?;
@@ -94,10 +128,14 @@ impl Save {
             );
             fs::copy(file.path(), new_path)?;
         }
-        let mut new = self.clone();
-        new.path = destination.to_owned();
-        new.name = name;
-        Ok(new)
+        Ok(())
+    }
+    pub fn delete(&self) -> Result<()> {
+        for entry in fs::read_dir(&self.path)? {
+            let file = entry?;
+            fs::remove_file(file.path())?;
+        }
+        Ok(())
     }
 }
 
@@ -144,38 +182,10 @@ impl SavesData {
             })
             .map(|s| s.with_decrypted_info().unwrap())
             .collect();
+        fs::create_dir_all(&self.external_saves_dir)?;
+        self.saves = saves_from_dir(&self.external_saves_dir)?;
         fs::create_dir_all(&self.backups_dir)?;
-        self.saves = fs::read_dir(&self.backups_dir)
-            .context("couldn't read backups directory")?
-            .filter_map(|x| match x {
-                Ok(x) => Some(x),
-                Err(_) => None,
-            })
-            .filter_map(|p| {
-                let name = p.file_name().into_string();
-                match name {
-                    Ok(n) => Some((n, p.path().to_owned())),
-                    Err(_) => None,
-                }
-            })
-            .filter_map(|(name, path)| {
-                match path.is_dir() {
-                    true => Some(Save {
-                        name,
-                        path,
-                        nrp_backup: false,
-                        info: None,
-                    }),
-                    false => None,
-                }
-                .map(|s| {
-                    s.clone()
-                        .with_decrypted_info()
-                        .with_context(|| format!("couldn't decrypt info for save {:?}", &s))
-                        .unwrap()
-                })
-            })
-            .collect();
+        self.backups = saves_from_dir(&self.backups_dir)?;
 
         self.slots.sort_by(|a, b| a.name.cmp(&b.name));
         self.saves.sort_by(|a, b| a.name.cmp(&b.name));
@@ -183,15 +193,15 @@ impl SavesData {
         Ok(())
     }
 
-    pub fn get_info(&mut self) {}
-
     pub fn new() -> Result<Self> {
         let base_dirs = BaseDirs::new().context("couldn't get base directories for OS")?;
         Ok(Self {
             game_slots_dir: save_directory(&base_dirs)?,
-            backups_dir: backup_directory(&base_dirs)?,
+            external_saves_dir: data_dir(&base_dirs)?.join("saves"),
+            backups_dir: data_dir(&base_dirs)?.join("backups"),
             slots: vec![],
             saves: vec![],
+            backups: vec![],
         })
     }
 }

@@ -71,6 +71,9 @@ impl NineSaves {
             Some(Action::SaveSlotToNewExternal) => {
                 self.slot_selected.is_some() && !self.new_save_name.is_empty()
             }
+            Some(Action::WriteExternalToSlot) => {
+                self.slot_selected.is_some() && self.external_selected.is_some()
+            }
             _ => false,
         }
     }
@@ -130,11 +133,24 @@ impl Application for NineSaves {
                     {
                         return Command::none();
                     }
-                    let name = self.new_save_name.clone();
-                    let destination = self.data.backups_dir.join(&name);
+                    let destination = self.data.external_saves_dir.join(&self.new_save_name);
                     self.data.slots[self.slot_selected.expect("must exist")]
-                        .copy(&destination, name)
+                        .copy(&destination)
                         .unwrap();
+                    self.data.refresh().unwrap();
+                }
+                Some(Action::WriteExternalToSlot) => {
+                    let slot = &self.data.slots[self.slot_selected.expect("must exist")];
+                    let source = &self.data.saves[self.external_selected.expect("must exist")];
+                    // backup slot first
+                    let backup_dst = &self.data.backups_dir.join(format!(
+                        "{}_{}",
+                        self.data.backups.len(),
+                        &slot.name
+                    ));
+                    slot.copy(backup_dst).unwrap();
+                    slot.delete().unwrap();
+                    source.copy(&slot.path).unwrap();
                     self.data.refresh().unwrap();
                 }
                 _ => todo!(),
