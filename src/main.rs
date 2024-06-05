@@ -69,7 +69,13 @@ impl NineSaves {
     pub fn action_ready(&self) -> bool {
         match self.action_selected {
             Some(Action::SaveSlotToNewExternal) => {
-                self.slot_selected.is_some() && !self.new_save_name.is_empty()
+                self.slot_selected.is_some()
+                    && !self.new_save_name.is_empty()
+                    && !self
+                        .data
+                        .saves
+                        .iter()
+                        .any(|s| s.name.as_str() == self.new_save_name.as_str())
             }
             Some(Action::WriteExternalToSlot) => {
                 self.slot_selected.is_some() && self.external_selected.is_some()
@@ -125,14 +131,6 @@ impl Application for NineSaves {
             Message::NewSaveNameChanged(s) => self.new_save_name = s.clone(),
             Message::PerformAction => match self.action_selected {
                 Some(Action::SaveSlotToNewExternal) => {
-                    if self
-                        .data
-                        .saves
-                        .iter()
-                        .any(|s| s.name.as_str() == self.new_save_name.as_str())
-                    {
-                        return Command::none();
-                    }
                     let destination = self.data.external_saves_dir.join(&self.new_save_name);
                     self.data.slots[self.slot_selected.expect("must exist")]
                         .copy(&destination)
