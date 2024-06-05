@@ -3,7 +3,7 @@ use directories::BaseDirs;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const NS_ID: &str = "1809540";
 
@@ -42,10 +42,10 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
 }
 
 fn backup_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
-    Ok(base_dirs.data_dir().join("nine_saves"))
+    Ok(base_dirs.data_dir().join("nine_saves").join("backups"))
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Save {
     pub name: String,
     pub path: PathBuf,
@@ -53,7 +53,7 @@ pub struct Save {
     pub info: Option<SaveInfo>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SaveInfo {
     pub level: u8,
     #[serde(rename(deserialize = "playTime"))]
@@ -81,6 +81,24 @@ impl Save {
             ..self
         })
     }
+    pub fn copy(&self, destination: &Path, name: String) -> Result<Self> {
+        fs::create_dir_all(destination).with_context(|| {
+            format!("couldn't create destination directory ({:?})", destination)
+        })?;
+        for entry in fs::read_dir(&self.path)? {
+            let file = entry?;
+            let new_path = destination.join(
+                file.path()
+                    .file_name()
+                    .with_context(|| format!("couldn't get filename of entry {:?}", file))?,
+            );
+            fs::copy(file.path(), new_path)?;
+        }
+        let mut new = self.clone();
+        new.path = destination.to_owned();
+        new.name = name;
+        Ok(new)
+    }
 }
 
 impl SavesData {
@@ -105,7 +123,7 @@ impl SavesData {
                             let num: u8 = num.as_str().parse().unwrap();
                             match caps.get(2) {
                                 Some(_) => Some(Save {
-                                    name: format!("Slot {} (Before No Return Point)", num + 1),
+                                    name: format!("Slot {} (Before NRP)", num + 1),
                                     path: p.1,
                                     nrp_backup: true,
                                     info: None,
@@ -126,8 +144,46 @@ impl SavesData {
             })
             .map(|s| s.with_decrypted_info().unwrap())
             .collect();
+        fs::create_dir_all(&self.backups_dir)?;
+        self.saves = fs::read_dir(&self.backups_dir)
+            .context("couldn't read backups directory")?
+            .filter_map(|x| match x {
+                Ok(x) => Some(x),
+                Err(_) => None,
+            })
+            .filter_map(|p| {
+                let name = p.file_name().into_string();
+                match name {
+                    Ok(n) => Some((n, p.path().to_owned())),
+                    Err(_) => None,
+                }
+            })
+            .filter_map(|(name, path)| {
+                match path.is_dir() {
+                    true => Some(Save {
+                        name,
+                        path,
+                        nrp_backup: false,
+                        info: None,
+                    }),
+                    false => None,
+                }
+                .map(|s| {
+                    s.clone()
+                        .with_decrypted_info()
+                        .with_context(|| format!("couldn't decrypt info for save {:?}", &s))
+                        .unwrap()
+                })
+            })
+            .collect();
+
+        self.slots.sort_by(|a, b| a.name.cmp(&b.name));
+        self.saves.sort_by(|a, b| a.name.cmp(&b.name));
+
         Ok(())
     }
+
+    pub fn get_info(&mut self) {}
 
     pub fn new() -> Result<Self> {
         let base_dirs = BaseDirs::new().context("couldn't get base directories for OS")?;

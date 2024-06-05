@@ -12,6 +12,7 @@ impl Save {
     fn encrypted_metadata(&self) -> Result<Vec<u8>> {
         Ok(fs::read(self.path.join("meta.txt"))?)
     }
+    #[allow(dead_code)]
     fn encrypted_flags(&self) -> Result<Vec<u8>> {
         Ok(fs::read(self.path.join("flags.txt"))?)
     }
