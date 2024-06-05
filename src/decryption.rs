@@ -3,7 +3,6 @@ use crate::save::{Save, SaveInfo};
 use anyhow::Result;
 use base64::prelude::*;
 use libaes::Cipher;
-use sonic_rs;
 use std::fs;
 
 const KEY: [u8; 16] = *b"1234567812345678";
