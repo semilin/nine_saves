@@ -159,25 +159,25 @@ impl Application for NineSaves {
         };
         let game_slots = container(column![
             container(text("Game Slots").size(25))
-            .center_x()
-            .width(Length::Fill)
-            .padding(10),
+                .center_x()
+                .width(Length::Fill)
+                .padding(10),
             scrollable(
                 column(self.data.slots.iter().enumerate().map(|(i, s)| {
                     let info = s.info.as_ref().unwrap();
                     container(row![
                         container(radio("", i, self.slot_selected, Message::SlotPicked))
-                        .center_y()
-                        .height(Length::Shrink),
+                            .center_y()
+                            .height(Length::Shrink),
                         row![
                             container(text(&s.name).size(20)).width(Length::Fill),
                             container(row![
                                 container(text(format!("Level {}", info.level)))
-                                .width(Length::Fill)
-                                .center_x(),
+                                    .width(Length::Fill)
+                                    .center_x(),
                                 container(text(info.formatted_time()))
-                                .width(Length::Fill)
-                                .center_x(),
+                                    .width(Length::Fill)
+                                    .center_x(),
                             ])
                             .padding(Padding::from([10, 0, 0, 0]))
                         ],
@@ -192,42 +192,43 @@ impl Application for NineSaves {
             ),
         ]);
 
-        let external_saves: iced::widget::Container<Message> =
-            container(column![container(text("External Saves").size(25))
+        let external_saves: iced::widget::Container<Message> = container(column![
+            container(text("External Saves").size(25))
                 .center_x()
                 .width(Length::Fill)
                 .padding(10),
-                scrollable(column(self.data.saves.iter().enumerate().map(|(i, s)| {
-                    let info = s.info.as_ref().unwrap();
-                    container(row![
-                        container(radio("", i, self.external_selected, Message::SavePicked))
+            scrollable(column(self.data.saves.iter().enumerate().map(|(i, s)| {
+                let info = s.info.as_ref().unwrap();
+                container(row![
+                    container(radio("", i, self.external_selected, Message::SavePicked))
                         .center_y()
                         .height(Length::Shrink),
-                        row![
-                            container(text(&s.name).size(20)).width(Length::Fill),
-                            container(row![
-                                container(text(format!("Level {}", info.level)))
+                    row![
+                        container(text(&s.name).size(20)).width(Length::Fill),
+                        container(row![
+                            container(text(format!("Level {}", info.level)))
                                 .width(Length::Fill)
                                 .center_x(),
-                                container(text(info.formatted_time()))
+                            container(text(info.formatted_time()))
                                 .width(Length::Fill)
                                 .center_x(),
-                            ])
-                            .padding(Padding::from([10, 0, 0, 0]))
-                        ],
-                    ])
-                    .style(box_appearance)
-                    .padding(10)
-                    .center_x()
-                    .width(Length::Fill)
-                    .into()
-                })))]);
+                        ])
+                        .padding(Padding::from([10, 0, 0, 0]))
+                    ],
+                ])
+                .style(box_appearance)
+                .padding(10)
+                .center_x()
+                .width(Length::Fill)
+                .into()
+            })))
+        ]);
 
         let actions: iced::widget::Container<Message> = container(column![
             container(text("Actions").size(25))
-            .center_x()
-            .padding(10)
-            .width(Length::Fill),
+                .center_x()
+                .padding(10)
+                .width(Length::Fill),
             row![
                 container(
                     row![
@@ -249,7 +250,7 @@ impl Application for NineSaves {
                             text(" to new external save "),
                             container(
                                 TextInput::new("save name", &self.new_save_name)
-                                .on_input(Message::NewSaveNameChanged)
+                                    .on_input(Message::NewSaveNameChanged)
                             )
                             .max_width(100)
                         ],
@@ -293,21 +294,21 @@ impl Application for NineSaves {
             .align_x(Horizontal::Right)
             .padding(10)
         ])
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_y(Vertical::Bottom)
-            .padding(20);
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .align_y(Vertical::Bottom)
+        .padding(20);
 
         container(column![
             container(text("Nine Saves").size(30))
-            .center_x()
-            .align_y(Vertical::Top)
-            .width(Length::Fill),
+                .center_x()
+                .align_y(Vertical::Top)
+                .width(Length::Fill),
             row![game_slots, external_saves].spacing(40),
             actions
         ])
-            .padding(20)
-            .into()
+        .padding(20)
+        .into()
     }
     fn theme(&self) -> Theme {
         Theme::TokyoNight
