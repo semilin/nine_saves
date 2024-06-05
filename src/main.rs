@@ -68,13 +68,10 @@ impl NineSaves {
     }
     pub fn action_ready(&self) -> bool {
         match self.action_selected {
-            Some(action) => match action {
-                Action::SaveSlotToNewExternal => {
-                    self.slot_selected.is_some() && !self.new_save_name.is_empty()
-                }
-                _ => false,
-            },
-            None => false,
+            Some(Action::SaveSlotToNewExternal) => {
+                self.slot_selected.is_some() && !self.new_save_name.is_empty()
+            }
+            _ => false,
         }
     }
 }
