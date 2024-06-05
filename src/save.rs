@@ -60,7 +60,9 @@ pub struct SaveInfo {
     pub playtime: f64,
     pub gold: u32,
     #[serde(rename(deserialize = "gameMode"))]
-    pub gamemode: u8
+    pub gamemode: u8,
+    #[serde(rename(deserialize = "atSceneGuid"))]
+    pub atsceneguid: String,
 }
 
 #[derive(Debug, Default)]
@@ -83,7 +85,7 @@ impl Save {
 
 impl SavesData {
     pub fn refresh(&mut self) -> Result<()> {
-        let re = Regex::new("saveslot(\\d+)(_BeforeNoReturnPoint)?")?;
+        let re = Regex::new("saveslot([0-3])(_BeforeNoReturnPoint)?$")?;
         self.slots = fs::read_dir(&self.game_slots_dir)?
             .filter_map(|x| match x {
                 Ok(x) => Some(x),
@@ -103,7 +105,7 @@ impl SavesData {
                             let num: u8 = num.as_str().parse().unwrap();
                             match caps.get(2) {
                                 Some(_) => Some(Save {
-                                    name: format!("Slot {} (NRP Backup)", num + 1),
+                                    name: format!("Slot {} (Before No Return Point)", num + 1),
                                     path: p.1,
                                     nrp_backup: true,
                                     info: None,

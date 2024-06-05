@@ -1,0 +1,2 @@
+9115d3446fcc24abab2c0030d55abd1eTeleportPointData, 1d24fc87063235c40b83b837dcab39a5GameLevelMapData = Four Seasons Pavilion
+2ee85cc763a3d413f9b6e18e7e1fee67TeleportPointData, 7ca1bdfe0f0ba4252b922f03a614cd29GameLevelMapData = Apeman Facility (Elevator)
