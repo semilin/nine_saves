@@ -1,18 +1,20 @@
 # Nine Saves 
 ![Image of GUI](./assets/readme_image.png) 
 
-Nine Saves is an unofficial save manager application for Nine Souls.
-The game has only four save slots available, and doesn't let you save
+Nine Saves is a simple, unofficial save manager application for Nine Souls.
+
+Currently, the game has only four save slots available, and doesn't let you save
 to them freely. This tool allows you to back up your save slots with
 useful names, as well as load save backups into your existing slots.
 
+Note: Nine Saves has no affiliation with Red Candle Games - they are
+not liable for any issues experienced while using this software.
+
+## Safety
 All destructive operations back up files before making any
 irreversible changes. The risk of losing data with Nine Saves is low.
-Still, you should exercise some caution; this is still early in
+Still, you should exercise some caution; this tool is early in
 development.
-
-Note: Nine Save has no affiliation with Red Candle Games - they are
-not liable for any issues experienced while using this software.
 
 ## Installation
 ### Releases
