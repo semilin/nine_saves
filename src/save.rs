@@ -186,10 +186,10 @@ impl SavesData {
             })
             .filter_map(|s| s.with_decrypted_info().ok())
             .collect();
-        fs::create_dir_all(&self.external_saves_dir)?;
+        fs::create_dir_all(&self.external_saves_dir).context("couldn't create external saves directory")?;
         self.saves =
             saves_from_dir(&self.external_saves_dir).context("failed to load external saves")?;
-        fs::create_dir_all(&self.backups_dir)?;
+        fs::create_dir_all(&self.backups_dir).context("couldn't create backups directory")?;
         self.backups = saves_from_dir(&self.backups_dir).context("failed to load backups")?;
 
         self.slots.sort_by(|a, b| a.name.cmp(&b.name));
