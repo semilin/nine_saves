@@ -14,7 +14,6 @@ use iced::Length;
 use iced::{
     Application, Background, Border, Color, Command, Element, Padding, Settings, Shadow, Theme,
 };
-use notify_rust::Notification;
 
 const DEBUG: bool = false;
 
@@ -198,21 +197,20 @@ impl Application for NineSaves {
     type Theme = Theme;
 
     fn new(_flags: ()) -> (Self, Command<Self::Message>) {
-        match NineSaves::new() {
+        let app = match NineSaves::new() {
             Ok(mut nine_saves) => {
                 nine_saves.try_refresh();
-                (nine_saves, Command::none())
+                nine_saves
             }
             Err(e) => {
-                Notification::new()
-                    .summary("Nine Saves Error")
-                    .body(&format!("{:?}", e))
-                    .appname("nine_saves")
-                    .show()
-                    .unwrap();
-                panic!("{}", e);
+                NineSaves {
+                    error_status: Some(format!("{:?}", e)),
+                    ..Default::default()
+                }
+                
             }
-        }
+        };
+        (app, Command::none())
     }
 
     fn title(&self) -> String {
