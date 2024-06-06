@@ -109,6 +109,7 @@ enum Message {
     SavePicked(usize),
     ActionPicked(Action),
     NewSaveNameChanged(String),
+    Refresh,
     PerformAction,
 }
 
@@ -209,6 +210,7 @@ impl Application for NineSaves {
             Message::SavePicked(i) => self.external_selected = Some(i),
             Message::ActionPicked(action) => self.action_selected = Some(action),
             Message::NewSaveNameChanged(s) => self.new_save_name = s.clone(),
+            Message::Refresh => self.data.refresh().unwrap(),
             Message::PerformAction => match self.action_selected {
                 Some(Action::SaveSlotToNewExternal) => {
                     let destination = self.data.external_saves_dir.join(&self.new_save_name);
@@ -330,22 +332,27 @@ impl Application for NineSaves {
                     .width(Length::Fill)
             ]
             .spacing(20),
-            container({
-                let button = Button::new("Perform Action");
-                match self.action_ready() {
-                    true => button.on_press(Message::PerformAction),
-                    false => button,
-                }
-            })
+            row![
+                container(Button::new("Refresh").on_press(Message::Refresh))
+                    .align_x(Horizontal::Left),
+                container({
+                    let button = Button::new("Perform Action");
+                    match self.action_ready() {
+                        true => button.on_press(Message::PerformAction),
+                        false => button,
+                    }
+                })
+                .align_x(Horizontal::Right)
+                .width(Length::Fill)
+                .padding(10),
+            ]
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_x(Horizontal::Right)
             .padding(10)
         ])
         .width(Length::Fill)
         .height(Length::Fill)
-        .align_y(Vertical::Bottom)
-        .padding(20);
+        .align_y(Vertical::Bottom);
 
         let content: Element<_> = container(column![
             container(text("Nine Saves").size(30))
