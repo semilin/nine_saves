@@ -42,7 +42,7 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
 }
 
 fn saves_from_dir(dir: &Path) -> Result<Vec<Save>> {
-    Ok(fs::read_dir(&dir)
+    Ok(fs::read_dir(dir)
         .context("couldn't read external saves directory")?
         .filter_map(|x| match x {
             Ok(x) => Some(x),

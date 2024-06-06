@@ -1,7 +1,7 @@
 mod decryption;
 mod save;
 
-use save::{SaveInfo, SavesData};
+use save::{Save, SaveInfo, SavesData};
 
 use anyhow::Result;
 use iced::alignment::{Horizontal, Vertical};
@@ -13,6 +13,8 @@ use iced::Length;
 use iced::{
     Application, Background, Border, Color, Command, Element, Padding, Settings, Shadow, Theme,
 };
+
+const DEBUG: bool = false;
 
 pub enum AppColor {
     SaveBorder,
@@ -108,6 +110,62 @@ enum Message {
     PerformAction,
 }
 
+#[derive(Copy, Clone)]
+enum SaveListKind {
+    Slots,
+    Saves,
+}
+
+impl NineSaves {
+    fn action_radio(&self, action: Action) -> Element<Message> {
+        radio("", action, self.action_selected, Message::ActionPicked).into()
+    }
+    fn save_box(&self, kind: SaveListKind, list: &[Save], i: usize) -> Element<Message> {
+        let save = &list[i];
+        let box_appearance = container::Appearance {
+            text_color: Some(Color::WHITE),
+            background: Some(Background::Color(AppColor::SaveBackground.color())),
+            border: Border {
+                color: AppColor::SaveBorder.color(),
+                width: 2.0,
+                radius: 10.0.into(),
+            },
+            shadow: Shadow::default(),
+        };
+        let info = save.info.as_ref().unwrap();
+        container(row![
+            container(radio(
+                "",
+                i,
+                self.slot_selected,
+                match kind {
+                    SaveListKind::Slots => Message::SlotPicked,
+                    SaveListKind::Saves => Message::SavePicked,
+                }
+            ))
+            .center_y()
+            .height(Length::Shrink),
+            row![
+                container(text(&save.name).size(20)).width(Length::Fill),
+                container(row![
+                    container(text(format!("Level {}", info.level)))
+                        .width(Length::Fill)
+                        .center_x(),
+                    container(text(info.formatted_time()))
+                        .width(Length::Fill)
+                        .center_x(),
+                ])
+                .padding(Padding::from([10, 0, 0, 0]))
+            ],
+        ])
+        .style(box_appearance)
+        .padding(10)
+        .center_x()
+        .width(Length::Fill)
+        .into()
+    }
+}
+
 impl Application for NineSaves {
     type Executor = executor::Default;
     type Flags = ();
@@ -157,90 +215,38 @@ impl Application for NineSaves {
     }
 
     fn view(&self) -> Element<Self::Message> {
-        let box_appearance = container::Appearance {
-            text_color: Some(Color::WHITE),
-            background: Some(Background::Color(AppColor::SaveBackground.color())),
-            border: Border {
-                color: AppColor::SaveBorder.color(),
-                width: 2.0,
-                radius: 10.0.into(),
-            },
-            shadow: Shadow::default(),
-        };
-        let game_slots = container(column![
-            container(text("Game Slots").size(25))
-                .center_x()
-                .width(Length::Fill)
-                .padding(10),
-            scrollable(
-                column(self.data.slots.iter().enumerate().map(|(i, s)| {
-                    let info = s.info.as_ref().unwrap();
-                    container(row![
-                        container(radio("", i, self.slot_selected, Message::SlotPicked))
-                            .center_y()
-                            .height(Length::Shrink),
-                        row![
-                            container(text(&s.name).size(20)).width(Length::Fill),
-                            container(row![
-                                container(text(format!("Level {}", info.level)))
-                                    .width(Length::Fill)
-                                    .center_x(),
-                                container(text(info.formatted_time()))
-                                    .width(Length::Fill)
-                                    .center_x(),
-                            ])
-                            .padding(Padding::from([10, 0, 0, 0]))
-                        ],
-                    ])
-                    .style(box_appearance)
-                    .padding(10)
+        let game_slots =
+            container(column![
+                container(text("Game Slots").size(25))
                     .center_x()
                     .width(Length::Fill)
-                    .into()
-                }))
-                .spacing(10)
-            ),
-        ]);
+                    .padding(10),
+                container(scrollable(
+                    column(
+                        self.data.slots.iter().enumerate().map(|(i, _)| {
+                            self.save_box(SaveListKind::Slots, &self.data.slots, i)
+                        })
+                    )
+                    .spacing(10)
+                ))
+                .height(Length::Shrink),
+            ])
+            .height(Length::Shrink);
 
-        let external_saves: iced::widget::Container<Message> = container(column![
+        let external_saves: Element<_> = column![
             container(text("External Saves").size(25))
                 .center_x()
                 .width(Length::Fill)
                 .padding(10),
-            scrollable(column(self.data.saves.iter().enumerate().map(|(i, s)| {
-                let info = s.info.as_ref().unwrap();
-                container(row![
-                    container(radio("", i, self.external_selected, Message::SavePicked))
-                        .center_y()
-                        .height(Length::Shrink),
-                    row![
-                        container(text(&s.name).size(20)).width(Length::Fill),
-                        container(row![
-                            container(text(format!("Level {}", info.level)))
-                                .width(Length::Fill)
-                                .center_x(),
-                            container(text(info.formatted_time()))
-                                .width(Length::Fill)
-                                .center_x(),
-                        ])
-                        .padding(Padding::from([10, 0, 0, 0]))
-                    ],
-                ])
-                .style(box_appearance)
-                .padding(10)
-                .center_x()
-                .width(Length::Fill)
-                .into()
+            scrollable(column(self.data.saves.iter().enumerate().map(|(i, _)| {
+                self.save_box(SaveListKind::Saves, &self.data.saves, i)
             })))
-        ]);
+            .height(Length::Fill)
+        ]
+        .into();
 
         let save_slot_to_external = row![
-            radio(
-                "",
-                Action::SaveSlotToNewExternal,
-                self.action_selected,
-                Message::ActionPicked
-            ),
+            self.action_radio(Action::SaveSlotToNewExternal),
             row![
                 text("Save "),
                 container(match self.slot_selected {
@@ -258,12 +264,7 @@ impl Application for NineSaves {
         ];
 
         let write_slot_to_external = row![
-            radio(
-                "",
-                Action::WriteSlotToExternal,
-                self.action_selected,
-                Message::ActionPicked
-            ),
+            self.action_radio(Action::WriteSlotToExternal),
             row![
                 text("Write "),
                 container(match self.slot_selected {
@@ -281,12 +282,7 @@ impl Application for NineSaves {
         ];
 
         let write_external_to_slot = row![
-            radio(
-                "",
-                Action::WriteExternalToSlot,
-                self.action_selected,
-                Message::ActionPicked
-            ),
+            self.action_radio(Action::WriteExternalToSlot),
             row![
                 text("Write "),
                 container(match self.external_selected {
@@ -322,6 +318,7 @@ impl Application for NineSaves {
                 }
             })
             .width(Length::Fill)
+            .height(Length::Fill)
             .align_x(Horizontal::Right)
             .padding(10)
         ])
@@ -330,16 +327,22 @@ impl Application for NineSaves {
         .align_y(Vertical::Bottom)
         .padding(20);
 
-        container(column![
+        let content: Element<_> = container(column![
             container(text("Nine Saves").size(30))
                 .center_x()
                 .align_y(Vertical::Top)
                 .width(Length::Fill),
-            row![game_slots, external_saves].spacing(40),
+            container(row![game_slots, external_saves].spacing(40)).height(Length::FillPortion(2)),
             actions
         ])
         .padding(20)
-        .into()
+        .into();
+
+        if DEBUG {
+            content.explain(Color::WHITE)
+        } else {
+            content
+        }
     }
     fn theme(&self) -> Theme {
         Theme::TokyoNight
