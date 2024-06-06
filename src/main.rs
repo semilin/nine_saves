@@ -164,6 +164,22 @@ impl NineSaves {
         .width(Length::Fill)
         .into()
     }
+    fn selected_slot_display(&self) -> Element<Message> {
+        container(match self.slot_selected {
+            Some(slot) => &self.data.slots[slot].name,
+            None => "selected slot",
+        })
+        .style(theme::Container::Box)
+        .into()
+    }
+    fn selected_save_display(&self) -> Element<Message> {
+        container(match self.external_selected {
+            Some(slot) => &self.data.saves[slot].name,
+            None => "selected save",
+        })
+        .style(theme::Container::Box)
+        .into()
+    }
 }
 
 impl Application for NineSaves {
@@ -227,33 +243,35 @@ impl Application for NineSaves {
                             self.save_box(SaveListKind::Slots, &self.data.slots, i)
                         })
                     )
-                    .spacing(10)
+                    .spacing(5)
                 ))
                 .height(Length::Shrink),
             ])
             .height(Length::Shrink);
 
-        let external_saves: Element<_> = column![
-            container(text("External Saves").size(25))
-                .center_x()
-                .width(Length::Fill)
-                .padding(10),
-            scrollable(column(self.data.saves.iter().enumerate().map(|(i, _)| {
-                self.save_box(SaveListKind::Saves, &self.data.saves, i)
-            })))
-            .height(Length::Fill)
-        ]
-        .into();
+        let external_saves: Element<_> =
+            column![
+                container(text("External Saves").size(25))
+                    .center_x()
+                    .width(Length::Fill)
+                    .padding(10),
+                scrollable(
+                    column(
+                        self.data.saves.iter().enumerate().map(|(i, _)| {
+                            self.save_box(SaveListKind::Saves, &self.data.saves, i)
+                        })
+                    )
+                    .spacing(5)
+                )
+                .height(Length::Fill)
+            ]
+            .into();
 
         let save_slot_to_external = row![
             self.action_radio(Action::SaveSlotToNewExternal),
             row![
                 text("Save "),
-                container(match self.slot_selected {
-                    Some(slot) => &self.data.slots[slot].name,
-                    None => "selected slot",
-                })
-                .style(theme::Container::Box),
+                self.selected_slot_display(),
                 text(" to new "),
                 container(
                     TextInput::new("save name", &self.new_save_name)
@@ -267,17 +285,9 @@ impl Application for NineSaves {
             self.action_radio(Action::WriteSlotToExternal),
             row![
                 text("Write "),
-                container(match self.slot_selected {
-                    Some(slot) => &self.data.slots[slot].name,
-                    None => "selected slot",
-                })
-                .style(theme::Container::Box),
+                self.selected_slot_display(),
                 text(" to "),
-                container(match self.external_selected {
-                    Some(save) => &self.data.saves[save].name,
-                    None => "selected save",
-                })
-                .style(theme::Container::Box)
+                self.selected_save_display()
             ]
         ];
 
@@ -285,17 +295,9 @@ impl Application for NineSaves {
             self.action_radio(Action::WriteExternalToSlot),
             row![
                 text("Write "),
-                container(match self.external_selected {
-                    Some(save) => &self.data.saves[save].name,
-                    None => "selected save",
-                })
-                .style(theme::Container::Box),
+                self.selected_save_display(),
                 text(" to "),
-                container(match self.slot_selected {
-                    Some(slot) => &self.data.slots[slot].name,
-                    None => "selected slot",
-                })
-                .style(theme::Container::Box)
+                self.selected_slot_display(),
             ]
         ];
 
