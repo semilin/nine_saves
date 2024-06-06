@@ -184,9 +184,8 @@ impl SavesData {
                     None
                 }
             })
-            .map(|s| s.with_decrypted_info())
-            .collect::<Result<_>>()
-            .context("failed to get game slots data")?;
+            .filter_map(|s| s.with_decrypted_info().ok())
+            .collect();
         fs::create_dir_all(&self.external_saves_dir)?;
         self.saves =
             saves_from_dir(&self.external_saves_dir).context("failed to load external saves")?;
