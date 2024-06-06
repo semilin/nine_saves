@@ -202,13 +202,10 @@ impl Application for NineSaves {
                 nine_saves.try_refresh();
                 nine_saves
             }
-            Err(e) => {
-                NineSaves {
-                    error_status: Some(format!("{:?}", e)),
-                    ..Default::default()
-                }
-                
-            }
+            Err(e) => NineSaves {
+                error_status: Some(format!("{:?}", e)),
+                ..Default::default()
+            },
         };
         (app, Command::none())
     }
@@ -227,27 +224,31 @@ impl Application for NineSaves {
             Message::PerformAction => match self.action_selected {
                 Some(Action::SaveSlotToNewExternal) => {
                     let destination = self.data.external_saves_dir.join(&self.new_save_name);
-                    self.data.slots[self.slot_selected.expect("must exist")]
-                        .copy(&destination)
-                        .unwrap();
+                    let res =
+                        self.data.slots[self.slot_selected.expect("must exist")].copy(&destination);
+                    self.handle_error(res);
                     self.try_refresh();
                 }
                 Some(Action::WriteExternalToSlot) => {
                     let slot = &self.data.slots[self.slot_selected.expect("must exist")];
                     let source = &self.data.saves[self.external_selected.expect("must exist")];
-                    self.data.backup_and_overwrite(source, slot).unwrap();
+                    let res = self.data.backup_and_overwrite(source, slot);
+                    self.handle_error(res);
                     self.try_refresh();
                 }
                 Some(Action::WriteSlotToExternal) => {
                     let slot = &self.data.slots[self.slot_selected.expect("must exist")];
                     let save = &self.data.saves[self.external_selected.expect("must exist")];
-                    self.data.backup_and_overwrite(slot, save).unwrap();
+                    let res = self.data.backup_and_overwrite(slot, save);
+                    self.handle_error(res);
                     self.try_refresh();
                 }
                 Some(Action::DeleteExternal) => {
-                    let save = &self.data.saves[self.external_selected.expect("must exist")];
-                    self.data.backup_and_delete(save).unwrap();
-                    save.delete_dir().unwrap();
+                    let save = self.data.saves[self.external_selected.expect("must exist")].clone();
+                    let res = self.data.backup_and_delete(&save);
+                    self.handle_error(res);
+                    let res = save.delete_dir();
+                    self.handle_error(res);
                     self.external_selected = None;
                     self.try_refresh();
                 }
