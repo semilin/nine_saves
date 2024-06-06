@@ -193,6 +193,22 @@ impl SavesData {
         Ok(())
     }
 
+    pub fn backup_and_overwrite(&self, source: &Save, destination: &Save) -> Result<()> {
+        let backup_dst = &self
+            .backups_dir
+            .join(format!("{}_{}", self.backups.len(), &source.name));
+        destination
+            .copy(backup_dst)
+            .with_context(|| format!("failed to back up save {}", destination.name))?;
+        destination
+            .delete()
+            .with_context(|| format!("failed to delete save {}", destination.name))?;
+        source
+            .copy(&destination.path)
+            .with_context(|| format!("failed to copy {} to {:?}", source.name, destination.path))?;
+        Ok(())
+    }
+
     pub fn new() -> Result<Self> {
         let base_dirs = BaseDirs::new().context("couldn't get base directories for OS")?;
         Ok(Self {

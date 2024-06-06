@@ -48,6 +48,7 @@ fn main() -> iced::Result {
 enum Action {
     SaveSlotToNewExternal,
     WriteExternalToSlot,
+    WriteSlotToExternal,
 }
 
 #[derive(Debug, Default)]
@@ -77,7 +78,7 @@ impl NineSaves {
                         .iter()
                         .any(|s| s.name.as_str() == self.new_save_name.as_str())
             }
-            Some(Action::WriteExternalToSlot) => {
+            Some(Action::WriteExternalToSlot | Action::WriteSlotToExternal) => {
                 self.slot_selected.is_some() && self.external_selected.is_some()
             }
             _ => false,
@@ -140,15 +141,13 @@ impl Application for NineSaves {
                 Some(Action::WriteExternalToSlot) => {
                     let slot = &self.data.slots[self.slot_selected.expect("must exist")];
                     let source = &self.data.saves[self.external_selected.expect("must exist")];
-                    // backup slot first
-                    let backup_dst = &self.data.backups_dir.join(format!(
-                        "{}_{}",
-                        self.data.backups.len(),
-                        &slot.name
-                    ));
-                    slot.copy(backup_dst).unwrap();
-                    slot.delete().unwrap();
-                    source.copy(&slot.path).unwrap();
+                    self.data.backup_and_overwrite(source, slot).unwrap();
+                    self.data.refresh().unwrap();
+                }
+                Some(Action::WriteSlotToExternal) => {
+                    let slot = &self.data.slots[self.slot_selected.expect("must exist")];
+                    let save = &self.data.saves[self.external_selected.expect("must exist")];
+                    self.data.backup_and_overwrite(slot, save).unwrap();
                     self.data.refresh().unwrap();
                 }
                 _ => todo!(),
@@ -241,7 +240,7 @@ impl Application for NineSaves {
                 .padding(10)
                 .width(Length::Fill),
             row![
-                container(
+                container(column![
                     row![
                         radio(
                             "",
@@ -255,19 +254,38 @@ impl Application for NineSaves {
                                 Some(slot) => &self.data.slots[slot].name,
                                 None => "selected slot",
                             })
-                            .style(theme::Container::Box)
-                            .width(Length::Shrink)
-                            .max_width(100),
-                            text(" to new external save "),
+                            .style(theme::Container::Box),
+                            text(" to new "),
                             container(
                                 TextInput::new("save name", &self.new_save_name)
                                     .on_input(Message::NewSaveNameChanged)
                             )
                             .max_width(100)
                         ],
+                    ],
+                    row![
+                        radio(
+                            "",
+                            Action::WriteSlotToExternal,
+                            self.action_selected,
+                            Message::ActionPicked
+                        ),
+                        row![
+                            text("Write "),
+                            container(match self.slot_selected {
+                                Some(slot) => &self.data.slots[slot].name,
+                                None => "selected slot",
+                            })
+                            .style(theme::Container::Box),
+                            text(" to "),
+                            container(match self.external_selected {
+                                Some(save) => &self.data.saves[save].name,
+                                None => "selected save",
+                            })
+                            .style(theme::Container::Box)
+                        ]
                     ]
-                    .spacing(10)
-                )
+                ])
                 .width(Length::Fill),
                 container(column![row![
                     radio(
