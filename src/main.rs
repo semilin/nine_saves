@@ -51,6 +51,7 @@ enum Action {
     SaveSlotToNewExternal,
     WriteExternalToSlot,
     WriteSlotToExternal,
+    DeleteExternal,
 }
 
 #[derive(Debug, Default)]
@@ -83,6 +84,7 @@ impl NineSaves {
             Some(Action::WriteExternalToSlot | Action::WriteSlotToExternal) => {
                 self.slot_selected.is_some() && self.external_selected.is_some()
             }
+            Some(Action::DeleteExternal) => self.external_selected.is_some(),
             _ => false,
         }
     }
@@ -137,7 +139,10 @@ impl NineSaves {
             container(radio(
                 "",
                 i,
-                self.slot_selected,
+                match kind {
+                    SaveListKind::Slots => self.slot_selected,
+                    SaveListKind::Saves => self.external_selected,
+                },
                 match kind {
                     SaveListKind::Slots => Message::SlotPicked,
                     SaveListKind::Saves => Message::SavePicked,
@@ -224,6 +229,13 @@ impl Application for NineSaves {
                     self.data.backup_and_overwrite(slot, save).unwrap();
                     self.data.refresh().unwrap();
                 }
+                Some(Action::DeleteExternal) => {
+                    let save = &self.data.saves[self.external_selected.expect("must exist")];
+                    self.data.backup_and_delete(save).unwrap();
+                    save.delete_dir().unwrap();
+                    self.external_selected = None;
+                    self.data.refresh().unwrap();
+                }
                 _ => todo!(),
             },
         };
@@ -301,6 +313,11 @@ impl Application for NineSaves {
             ]
         ];
 
+        let delete_external = row![
+            self.action_radio(Action::DeleteExternal),
+            row![text("Delete "), self.selected_save_display(),]
+        ];
+
         let actions: iced::widget::Container<Message> = container(column![
             container(text("Actions").size(25))
                 .center_x()
@@ -309,7 +326,7 @@ impl Application for NineSaves {
             row![
                 container(column![save_slot_to_external, write_slot_to_external].spacing(5))
                     .width(Length::Fill),
-                container(column![write_external_to_slot]).width(Length::Fill)
+                container(column![write_external_to_slot, delete_external]).width(Length::Fill)
             ]
             .spacing(20),
             container({

@@ -137,6 +137,10 @@ impl Save {
         }
         Ok(())
     }
+    pub fn delete_dir(&self) -> Result<()> {
+        fs::remove_dir(&self.path)
+            .with_context(|| format!("couldn't remove save directory {:?}", self.path))
+    }
 }
 
 impl SavesData {
@@ -194,18 +198,21 @@ impl SavesData {
     }
 
     pub fn backup_and_overwrite(&self, source: &Save, destination: &Save) -> Result<()> {
-        let backup_dst = &self
-            .backups_dir
-            .join(format!("{}_{}", self.backups.len(), &source.name));
-        destination
-            .copy(backup_dst)
-            .with_context(|| format!("failed to back up save {}", destination.name))?;
-        destination
-            .delete()
-            .with_context(|| format!("failed to delete save {}", destination.name))?;
+        self.backup_and_delete(destination)?;
         source
             .copy(&destination.path)
             .with_context(|| format!("failed to copy {} to {:?}", source.name, destination.path))?;
+        Ok(())
+    }
+
+    pub fn backup_and_delete(&self, save: &Save) -> Result<()> {
+        let backup_dst = &self
+            .backups_dir
+            .join(format!("{}_{}", self.backups.len(), &save.name));
+        save.copy(backup_dst)
+            .with_context(|| format!("failed to back up save {}", save.name))?;
+        save.delete()
+            .with_context(|| format!("failed to delete save {}", save.name))?;
         Ok(())
     }
 
