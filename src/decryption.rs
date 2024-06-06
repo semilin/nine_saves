@@ -1,6 +1,6 @@
 use crate::save::{Save, SaveInfo};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use base64::prelude::*;
 use libaes::Cipher;
 use std::fs;
@@ -9,16 +9,18 @@ const KEY: [u8; 16] = *b"1234567812345678";
 
 impl Save {
     fn encrypted_metadata(&self) -> Result<Vec<u8>> {
-        Ok(fs::read(self.path.join("meta.txt"))?)
+        Ok(fs::read(self.path.join("meta.txt")).context("couldn't read metadata file")?)
     }
     #[allow(dead_code)]
     fn encrypted_flags(&self) -> Result<Vec<u8>> {
-        Ok(fs::read(self.path.join("flags.txt"))?)
+        Ok(fs::read(self.path.join("flags.txt")).context("couldn't read flags file")?)
     }
 }
 
 fn decrypt(data: &[u8]) -> Result<Vec<u8>> {
-    let ciphertext = BASE64_STANDARD.decode(data)?;
+    let ciphertext = BASE64_STANDARD
+        .decode(data)
+        .context("error decoding base64")?;
     let cipher = Cipher::new_128(&KEY);
     let decrypted = cipher.cbc_decrypt(&KEY, &ciphertext[..]);
     Ok(decrypted)
@@ -28,7 +30,7 @@ impl SaveInfo {
     pub fn decrypt_from(save: &Save) -> Result<Self> {
         let data = save.encrypted_metadata()?;
         let decrypted = decrypt(&data)?;
-        let info: SaveInfo = sonic_rs::from_slice(&decrypted)?;
+        let info: SaveInfo = sonic_rs::from_slice(&decrypted).context("invalid json")?;
 
         Ok(info)
     }

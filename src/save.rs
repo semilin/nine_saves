@@ -42,7 +42,7 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
 }
 
 fn saves_from_dir(dir: &Path) -> Result<Vec<Save>> {
-    Ok(fs::read_dir(dir)
+    fs::read_dir(dir)
         .context("couldn't read external saves directory")?
         .filter_map(|x| match x {
             Ok(x) => Some(x),
@@ -68,9 +68,8 @@ fn saves_from_dir(dir: &Path) -> Result<Vec<Save>> {
             s.clone()
                 .with_decrypted_info()
                 .with_context(|| format!("couldn't decrypt info for save {:?}", &s))
-                .unwrap()
         })
-        .collect())
+        .collect()
 }
 
 fn data_dir(base_dirs: &BaseDirs) -> Result<PathBuf> {
@@ -146,7 +145,8 @@ impl Save {
 impl SavesData {
     pub fn refresh(&mut self) -> Result<()> {
         let re = Regex::new("saveslot([0-3])(_BeforeNoReturnPoint)?$")?;
-        self.slots = fs::read_dir(&self.game_slots_dir)?
+        self.slots = fs::read_dir(&self.game_slots_dir)
+            .context("couldn't read game's slot directory")?
             .filter_map(|x| match x {
                 Ok(x) => Some(x),
                 Err(_) => None,
@@ -184,12 +184,14 @@ impl SavesData {
                     None
                 }
             })
-            .map(|s| s.with_decrypted_info().unwrap())
-            .collect();
+            .map(|s| s.with_decrypted_info())
+            .collect::<Result<_>>()
+            .context("failed to get game slots data")?;
         fs::create_dir_all(&self.external_saves_dir)?;
-        self.saves = saves_from_dir(&self.external_saves_dir)?;
+        self.saves =
+            saves_from_dir(&self.external_saves_dir).context("failed to load external saves")?;
         fs::create_dir_all(&self.backups_dir)?;
-        self.backups = saves_from_dir(&self.backups_dir)?;
+        self.backups = saves_from_dir(&self.backups_dir).context("failed to load backups")?;
 
         self.slots.sort_by(|a, b| a.name.cmp(&b.name));
         self.saves.sort_by(|a, b| a.name.cmp(&b.name));

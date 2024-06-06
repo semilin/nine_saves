@@ -1,4 +1,5 @@
 mod decryption;
+mod error;
 mod save;
 
 use save::{Save, SaveInfo, SavesData};
@@ -13,6 +14,7 @@ use iced::Length;
 use iced::{
     Application, Background, Border, Color, Command, Element, Padding, Settings, Shadow, Theme,
 };
+use notify_rust::Notification;
 
 const DEBUG: bool = false;
 
@@ -61,6 +63,7 @@ struct NineSaves {
     external_selected: Option<usize>,
     action_selected: Option<Action>,
     new_save_name: String,
+    error_status: Option<String>,
 }
 
 impl NineSaves {
@@ -195,9 +198,21 @@ impl Application for NineSaves {
     type Theme = Theme;
 
     fn new(_flags: ()) -> (Self, Command<Self::Message>) {
-        let mut nine_saves = NineSaves::new().unwrap();
-        nine_saves.data.refresh().unwrap();
-        (nine_saves, Command::none())
+        match NineSaves::new() {
+            Ok(mut nine_saves) => {
+                nine_saves.try_refresh();
+                (nine_saves, Command::none())
+            }
+            Err(e) => {
+                Notification::new()
+                    .summary("Nine Saves Error")
+                    .body(&format!("{:?}", e))
+                    .appname("nine_saves")
+                    .show()
+                    .unwrap();
+                panic!("{}", e);
+            }
+        }
     }
 
     fn title(&self) -> String {
@@ -210,33 +225,33 @@ impl Application for NineSaves {
             Message::SavePicked(i) => self.external_selected = Some(i),
             Message::ActionPicked(action) => self.action_selected = Some(action),
             Message::NewSaveNameChanged(s) => self.new_save_name = s.clone(),
-            Message::Refresh => self.data.refresh().unwrap(),
+            Message::Refresh => self.try_refresh(),
             Message::PerformAction => match self.action_selected {
                 Some(Action::SaveSlotToNewExternal) => {
                     let destination = self.data.external_saves_dir.join(&self.new_save_name);
                     self.data.slots[self.slot_selected.expect("must exist")]
                         .copy(&destination)
                         .unwrap();
-                    self.data.refresh().unwrap();
+                    self.try_refresh();
                 }
                 Some(Action::WriteExternalToSlot) => {
                     let slot = &self.data.slots[self.slot_selected.expect("must exist")];
                     let source = &self.data.saves[self.external_selected.expect("must exist")];
                     self.data.backup_and_overwrite(source, slot).unwrap();
-                    self.data.refresh().unwrap();
+                    self.try_refresh();
                 }
                 Some(Action::WriteSlotToExternal) => {
                     let slot = &self.data.slots[self.slot_selected.expect("must exist")];
                     let save = &self.data.saves[self.external_selected.expect("must exist")];
                     self.data.backup_and_overwrite(slot, save).unwrap();
-                    self.data.refresh().unwrap();
+                    self.try_refresh();
                 }
                 Some(Action::DeleteExternal) => {
                     let save = &self.data.saves[self.external_selected.expect("must exist")];
                     self.data.backup_and_delete(save).unwrap();
                     save.delete_dir().unwrap();
                     self.external_selected = None;
-                    self.data.refresh().unwrap();
+                    self.try_refresh();
                 }
                 _ => todo!(),
             },
@@ -245,125 +260,133 @@ impl Application for NineSaves {
     }
 
     fn view(&self) -> Element<Self::Message> {
-        let game_slots =
-            container(column![
-                container(text("Game Slots").size(25))
-                    .center_x()
-                    .width(Length::Fill)
-                    .padding(10),
-                container(scrollable(
-                    column(
-                        self.data.slots.iter().enumerate().map(|(i, _)| {
-                            self.save_box(SaveListKind::Slots, &self.data.slots, i)
-                        })
-                    )
-                    .spacing(5)
-                ))
-                .height(Length::Shrink),
+        let content = match &self.error_status {
+            Some(e) => container(column![
+                text("Nine Saves encountered an error").size(20),
+                text(e)
             ])
-            .height(Length::Shrink);
+            .padding(20)
+            .into(),
+            None => {
+                let game_slots = container(column![
+                    container(text("Game Slots").size(25))
+                        .center_x()
+                        .width(Length::Fill)
+                        .padding(10),
+                    container(scrollable(
+                        column(self.data.slots.iter().enumerate().map(|(i, _)| {
+                            self.save_box(SaveListKind::Slots, &self.data.slots, i)
+                        }))
+                        .spacing(5)
+                    ))
+                    .height(Length::Shrink),
+                ])
+                .height(Length::Shrink);
 
-        let external_saves: Element<_> =
-            column![
-                container(text("External Saves").size(25))
-                    .center_x()
-                    .width(Length::Fill)
-                    .padding(10),
-                scrollable(
-                    column(
-                        self.data.saves.iter().enumerate().map(|(i, _)| {
+                let external_saves: Element<_> = column![
+                    container(text("External Saves").size(25))
+                        .center_x()
+                        .width(Length::Fill)
+                        .padding(10),
+                    scrollable(
+                        column(self.data.saves.iter().enumerate().map(|(i, _)| {
                             self.save_box(SaveListKind::Saves, &self.data.saves, i)
-                        })
+                        }))
+                        .spacing(5)
                     )
-                    .spacing(5)
-                )
-                .height(Length::Fill)
-            ]
-            .into();
+                    .height(Length::Fill)
+                ]
+                .into();
 
-        let save_slot_to_external = row![
-            self.action_radio(Action::SaveSlotToNewExternal),
-            row![
-                text("Save "),
-                self.selected_slot_display(),
-                text(" to new "),
-                container(
-                    TextInput::new("save name", &self.new_save_name)
-                        .on_input(Message::NewSaveNameChanged)
-                )
-                .max_width(100)
-            ],
-        ];
+                let save_slot_to_external = row![
+                    self.action_radio(Action::SaveSlotToNewExternal),
+                    row![
+                        text("Save "),
+                        self.selected_slot_display(),
+                        text(" to new "),
+                        container(
+                            TextInput::new("save name", &self.new_save_name)
+                                .on_input(Message::NewSaveNameChanged)
+                        )
+                        .max_width(100)
+                    ],
+                ];
 
-        let write_slot_to_external = row![
-            self.action_radio(Action::WriteSlotToExternal),
-            row![
-                text("Write "),
-                self.selected_slot_display(),
-                text(" to "),
-                self.selected_save_display()
-            ]
-        ];
+                let write_slot_to_external = row![
+                    self.action_radio(Action::WriteSlotToExternal),
+                    row![
+                        text("Write "),
+                        self.selected_slot_display(),
+                        text(" to "),
+                        self.selected_save_display()
+                    ]
+                ];
 
-        let write_external_to_slot = row![
-            self.action_radio(Action::WriteExternalToSlot),
-            row![
-                text("Write "),
-                self.selected_save_display(),
-                text(" to "),
-                self.selected_slot_display(),
-            ]
-        ];
+                let write_external_to_slot = row![
+                    self.action_radio(Action::WriteExternalToSlot),
+                    row![
+                        text("Write "),
+                        self.selected_save_display(),
+                        text(" to "),
+                        self.selected_slot_display(),
+                    ]
+                ];
 
-        let delete_external = row![
-            self.action_radio(Action::DeleteExternal),
-            row![text("Delete "), self.selected_save_display(),]
-        ];
+                let delete_external = row![
+                    self.action_radio(Action::DeleteExternal),
+                    row![text("Delete "), self.selected_save_display(),]
+                ];
 
-        let actions: iced::widget::Container<Message> = container(column![
-            container(text("Actions").size(25))
-                .center_x()
-                .padding(10)
-                .width(Length::Fill),
-            row![
-                container(column![save_slot_to_external, write_slot_to_external].spacing(5))
-                    .width(Length::Fill),
-                container(column![write_external_to_slot, delete_external].spacing(5))
+                let actions: iced::widget::Container<Message> = container(column![
+                    container(text("Actions").size(25))
+                        .center_x()
+                        .padding(10)
+                        .width(Length::Fill),
+                    row![
+                        container(
+                            column![save_slot_to_external, write_slot_to_external].spacing(5)
+                        )
+                        .width(Length::Fill),
+                        container(column![write_external_to_slot, delete_external].spacing(5))
+                            .width(Length::Fill)
+                    ]
+                    .spacing(20),
+                    row![
+                        container(Button::new("Refresh").on_press(Message::Refresh))
+                            .align_x(Horizontal::Left),
+                        container({
+                            let button = Button::new("Perform Action");
+                            match self.action_ready() {
+                                true => button.on_press(Message::PerformAction),
+                                false => button,
+                            }
+                        })
+                        .align_x(Horizontal::Right)
+                        .width(Length::Fill)
+                        .padding(10),
+                    ]
                     .width(Length::Fill)
-            ]
-            .spacing(20),
-            row![
-                container(Button::new("Refresh").on_press(Message::Refresh))
-                    .align_x(Horizontal::Left),
-                container({
-                    let button = Button::new("Perform Action");
-                    match self.action_ready() {
-                        true => button.on_press(Message::PerformAction),
-                        false => button,
-                    }
-                })
-                .align_x(Horizontal::Right)
+                    .height(Length::Fill)
+                    .padding(10)
+                ])
                 .width(Length::Fill)
-                .padding(10),
-            ]
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(10)
-        ])
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .align_y(Vertical::Bottom);
+                .height(Length::Fill)
+                .align_y(Vertical::Bottom);
 
-        let content: Element<_> = container(column![
-            container(text("Nine Saves").size(30))
-                .center_x()
-                .align_y(Vertical::Top)
-                .width(Length::Fill),
-            container(row![game_slots, external_saves].spacing(40)).height(Length::FillPortion(2)),
-            actions
-        ])
-        .padding(20)
-        .into();
+                let content: Element<_> = container(column![
+                    container(text("Nine Saves").size(30))
+                        .center_x()
+                        .align_y(Vertical::Top)
+                        .width(Length::Fill),
+                    container(row![game_slots, external_saves].spacing(40))
+                        .height(Length::FillPortion(2)),
+                    actions
+                ])
+                .padding(20)
+                .into();
+                content
+            }
+        };
 
         if DEBUG {
             content.explain(Color::WHITE)
