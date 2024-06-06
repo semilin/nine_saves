@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use directories::BaseDirs;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
         path.extend(&["AppData", "LocalLow", "RedCandleGames", "NineSols"]);
         path
     } else if cfg!(target_os = "macos") {
-        todo!("find out macos save directory")
+        bail!("I don't know where Nine Sols stores its save files on MacOS. Please open an issue on Github!");
     } else if cfg!(target_os = "linux") {
         let mut path = base_dirs.data_dir().to_owned();
         path.extend(&[
@@ -184,13 +184,13 @@ impl SavesData {
                     None
                 }
             })
-            .map(|s| s.with_decrypted_info())
-            .collect::<Result<_>>()
-            .context("failed to get game slots data")?;
-        fs::create_dir_all(&self.external_saves_dir)?;
+            .filter_map(|s| s.with_decrypted_info().ok())
+            .collect();
+        fs::create_dir_all(&self.external_saves_dir)
+            .context("couldn't create external saves directory")?;
         self.saves =
             saves_from_dir(&self.external_saves_dir).context("failed to load external saves")?;
-        fs::create_dir_all(&self.backups_dir)?;
+        fs::create_dir_all(&self.backups_dir).context("couldn't create backups directory")?;
         self.backups = saves_from_dir(&self.backups_dir).context("failed to load backups")?;
 
         self.slots.sort_by(|a, b| a.name.cmp(&b.name));

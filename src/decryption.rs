@@ -9,11 +9,11 @@ const KEY: [u8; 16] = *b"1234567812345678";
 
 impl Save {
     fn encrypted_metadata(&self) -> Result<Vec<u8>> {
-        Ok(fs::read(self.path.join("meta.txt")).context("couldn't read metadata file")?)
+        fs::read(self.path.join("meta.txt")).context("couldn't read metadata file")
     }
     #[allow(dead_code)]
     fn encrypted_flags(&self) -> Result<Vec<u8>> {
-        Ok(fs::read(self.path.join("flags.txt")).context("couldn't read flags file")?)
+        fs::read(self.path.join("flags.txt")).context("couldn't read flags file")
     }
 }
 
