@@ -18,7 +18,7 @@ development.
 
 ## Installation
 ### Releases
-Binary executables for Windows, Mac, and Linux are available in the [releases tab](https://github.com/semilin/nine_saves/latest).
+Binary executables for Windows, Mac, and Linux are available in the [releases tab](https://github.com/semilin/nine_saves/releases).
 ### From Source
 Building from source requires the Rust toolchain.
 ```sh
