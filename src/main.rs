@@ -326,7 +326,8 @@ impl Application for NineSaves {
             row![
                 container(column![save_slot_to_external, write_slot_to_external].spacing(5))
                     .width(Length::Fill),
-                container(column![write_external_to_slot, delete_external]).width(Length::Fill)
+                container(column![write_external_to_slot, delete_external].spacing(5))
+                    .width(Length::Fill)
             ]
             .spacing(20),
             container({
