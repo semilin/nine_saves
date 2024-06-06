@@ -234,82 +234,84 @@ impl Application for NineSaves {
             })))
         ]);
 
+        let save_slot_to_external = row![
+            radio(
+                "",
+                Action::SaveSlotToNewExternal,
+                self.action_selected,
+                Message::ActionPicked
+            ),
+            row![
+                text("Save "),
+                container(match self.slot_selected {
+                    Some(slot) => &self.data.slots[slot].name,
+                    None => "selected slot",
+                })
+                .style(theme::Container::Box),
+                text(" to new "),
+                container(
+                    TextInput::new("save name", &self.new_save_name)
+                        .on_input(Message::NewSaveNameChanged)
+                )
+                .max_width(100)
+            ],
+        ];
+
+        let write_slot_to_external = row![
+            radio(
+                "",
+                Action::WriteSlotToExternal,
+                self.action_selected,
+                Message::ActionPicked
+            ),
+            row![
+                text("Write "),
+                container(match self.slot_selected {
+                    Some(slot) => &self.data.slots[slot].name,
+                    None => "selected slot",
+                })
+                .style(theme::Container::Box),
+                text(" to "),
+                container(match self.external_selected {
+                    Some(save) => &self.data.saves[save].name,
+                    None => "selected save",
+                })
+                .style(theme::Container::Box)
+            ]
+        ];
+
+        let write_external_to_slot = row![
+            radio(
+                "",
+                Action::WriteExternalToSlot,
+                self.action_selected,
+                Message::ActionPicked
+            ),
+            row![
+                text("Write "),
+                container(match self.external_selected {
+                    Some(save) => &self.data.saves[save].name,
+                    None => "selected save",
+                })
+                .style(theme::Container::Box),
+                text(" to "),
+                container(match self.slot_selected {
+                    Some(slot) => &self.data.slots[slot].name,
+                    None => "selected slot",
+                })
+                .style(theme::Container::Box)
+            ]
+        ];
+
         let actions: iced::widget::Container<Message> = container(column![
             container(text("Actions").size(25))
                 .center_x()
                 .padding(10)
                 .width(Length::Fill),
             row![
-                container(column![
-                    row![
-                        radio(
-                            "",
-                            Action::SaveSlotToNewExternal,
-                            self.action_selected,
-                            Message::ActionPicked
-                        ),
-                        row![
-                            text("Save "),
-                            container(match self.slot_selected {
-                                Some(slot) => &self.data.slots[slot].name,
-                                None => "selected slot",
-                            })
-                            .style(theme::Container::Box),
-                            text(" to new "),
-                            container(
-                                TextInput::new("save name", &self.new_save_name)
-                                    .on_input(Message::NewSaveNameChanged)
-                            )
-                            .max_width(100)
-                        ],
-                    ],
-                    row![
-                        radio(
-                            "",
-                            Action::WriteSlotToExternal,
-                            self.action_selected,
-                            Message::ActionPicked
-                        ),
-                        row![
-                            text("Write "),
-                            container(match self.slot_selected {
-                                Some(slot) => &self.data.slots[slot].name,
-                                None => "selected slot",
-                            })
-                            .style(theme::Container::Box),
-                            text(" to "),
-                            container(match self.external_selected {
-                                Some(save) => &self.data.saves[save].name,
-                                None => "selected save",
-                            })
-                            .style(theme::Container::Box)
-                        ]
-                    ]
-                ])
-                .width(Length::Fill),
-                container(column![row![
-                    radio(
-                        "",
-                        Action::WriteExternalToSlot,
-                        self.action_selected,
-                        Message::ActionPicked
-                    ),
-                    row![
-                        text("Write "),
-                        container(match self.external_selected {
-                            Some(save) => &self.data.saves[save].name,
-                            None => "selected save",
-                        })
-                        .style(theme::Container::Box),
-                        text(" to "),
-                        container(match self.slot_selected {
-                            Some(slot) => &self.data.slots[slot].name,
-                            None => "selected slot",
-                        })
-                        .style(theme::Container::Box)
-                    ]
-                ]])
-                .width(Length::Fill)
+                container(column![save_slot_to_external, write_slot_to_external].spacing(5))
+                    .width(Length::Fill),
+                container(column![write_external_to_slot]).width(Length::Fill)
             ]
             .spacing(20),
             container({
