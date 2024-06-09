@@ -60,6 +60,7 @@ fn saves_from_dir(dir: &Path) -> Result<Vec<Save>> {
                 name,
                 path,
                 nrp_backup: false,
+                exists: true,
                 info: None,
             }),
             false => None,
@@ -81,6 +82,7 @@ pub struct Save {
     pub name: String,
     pub path: PathBuf,
     pub nrp_backup: bool,
+    pub exists: bool,
     pub info: Option<SaveInfo>,
 }
 
@@ -140,6 +142,10 @@ impl Save {
         fs::remove_dir(&self.path)
             .with_context(|| format!("couldn't remove save directory {:?}", self.path))
     }
+    pub fn create_dir(&self) -> Result<()> {
+        fs::create_dir_all(&self.path)
+            .with_context(|| format!("couldn't create directory {:?}", self.path))
+    }
 }
 
 impl SavesData {
@@ -168,12 +174,14 @@ impl SavesData {
                                     name: format!("Slot {} (Before NRP)", num + 1),
                                     path: p.1,
                                     nrp_backup: true,
+                                    exists: true,
                                     info: None,
                                 }),
                                 None => Some(Save {
                                     name: format!("Slot {}", num + 1),
                                     path: p.1,
                                     nrp_backup: false,
+                                    exists: true,
                                     info: None,
                                 }),
                             }
@@ -186,6 +194,19 @@ impl SavesData {
             })
             .filter_map(|s| s.with_decrypted_info().ok())
             .collect();
+        for num in 0..4 {
+            let name = format!("Slot {}", num + 1);
+            if !self.slots.iter().any(|s| s.name == name) {
+                let slot = Save {
+                    name,
+                    path: self.game_slots_dir.join(format!("saveslot{}", num)),
+                    nrp_backup: false,
+                    exists: false,
+                    info: None,
+                };
+                self.slots.push(slot)
+            }
+        }
         fs::create_dir_all(&self.external_saves_dir)
             .context("couldn't create external saves directory")?;
         self.saves =

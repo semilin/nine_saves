@@ -53,6 +53,7 @@ enum Action {
     WriteExternalToSlot,
     WriteSlotToExternal,
     DeleteExternal,
+    DeleteSlot,
 }
 
 #[derive(Debug, Default)]
@@ -74,19 +75,30 @@ impl NineSaves {
     }
     pub fn action_ready(&self) -> bool {
         match self.action_selected {
-            Some(Action::SaveSlotToNewExternal) => {
-                self.slot_selected.is_some()
-                    && !self.new_save_name.is_empty()
-                    && !self
-                        .data
-                        .saves
-                        .iter()
-                        .any(|s| s.name.as_str() == self.new_save_name.as_str())
-            }
-            Some(Action::WriteExternalToSlot | Action::WriteSlotToExternal) => {
+            Some(Action::SaveSlotToNewExternal) => match self.slot_selected {
+                Some(s) => {
+                    !self.new_save_name.is_empty()
+                        && !self
+                            .data
+                            .saves
+                            .iter()
+                            .any(|s| s.name.as_str() == self.new_save_name.as_str())
+                        && self.data.slots[s].exists
+                }
+                None => false,
+            },
+            Some(Action::WriteSlotToExternal) => match self.slot_selected {
+                Some(s) => self.data.slots[s].exists && self.external_selected.is_some(),
+                None => false,
+            },
+            Some(Action::WriteExternalToSlot) => {
                 self.slot_selected.is_some() && self.external_selected.is_some()
             }
             Some(Action::DeleteExternal) => self.external_selected.is_some(),
+            Some(Action::DeleteSlot) => match self.slot_selected {
+                Some(s) => self.data.slots[s].exists,
+                None => false,
+            },
             _ => false,
         }
     }
@@ -137,7 +149,7 @@ impl NineSaves {
             },
             shadow: Shadow::default(),
         };
-        let info = save.info.as_ref().unwrap();
+        let info = save.info.as_ref();
         container(row![
             container(radio(
                 "",
@@ -155,15 +167,20 @@ impl NineSaves {
             .height(Length::Shrink),
             row![
                 container(text(&save.name).size(20)).width(Length::Fill),
-                container(row![
-                    container(text(format!("Level {}", info.level)))
-                        .width(Length::Fill)
-                        .center_x(),
-                    container(text(info.formatted_time()))
-                        .width(Length::Fill)
-                        .center_x(),
-                ])
-                .padding(Padding::from([10, 0, 0, 0]))
+                match info {
+                    Some(info) => container(row![
+                        container(text(format!("Level {}", info.level)))
+                            .width(Length::Fill)
+                            .center_x(),
+                        container(text(info.formatted_time()))
+                            .width(Length::Fill)
+                            .center_x(),
+                    ])
+                    .padding(Padding::from([10, 0, 0, 0])),
+                    None => container(text("empty"))
+                        .padding(Padding::from([0, 10]))
+                        .align_x(Horizontal::Right),
+                }
             ],
         ])
         .style(box_appearance)
@@ -230,10 +247,18 @@ impl Application for NineSaves {
                     self.try_refresh();
                 }
                 Some(Action::WriteExternalToSlot) => {
-                    let slot = &self.data.slots[self.slot_selected.expect("must exist")];
-                    let source = &self.data.saves[self.external_selected.expect("must exist")];
-                    let res = self.data.backup_and_overwrite(source, slot);
-                    self.handle_error(res);
+                    let slot = &self.data.slots[self.slot_selected.expect("must exist")].clone();
+                    let source =
+                        &self.data.saves[self.external_selected.expect("must exist")].clone();
+                    if slot.exists {
+                        let res = self.data.backup_and_overwrite(source, slot);
+                        self.handle_error(res);
+                    } else {
+                        let res = slot.create_dir();
+                        self.handle_error(res);
+                        let res = source.copy(&slot.path);
+                        self.handle_error(res);
+                    }
                     self.try_refresh();
                 }
                 Some(Action::WriteSlotToExternal) => {
@@ -252,7 +277,13 @@ impl Application for NineSaves {
                     self.external_selected = None;
                     self.try_refresh();
                 }
-                _ => todo!(),
+                Some(Action::DeleteSlot) => {
+                    let slot = self.data.slots[self.slot_selected.expect("must exist")].clone();
+                    let res = self.data.backup_and_delete(&slot);
+                    self.handle_error(res);
+                    self.try_refresh();
+                }
+                None => (),
             },
         };
         Command::none()
@@ -321,6 +352,11 @@ impl Application for NineSaves {
                     ]
                 ];
 
+                let delete_slot = row![
+                    self.action_radio(Action::DeleteSlot),
+                    row![text("Delete "), self.selected_slot_display(),]
+                ];
+
                 let write_external_to_slot = row![
                     self.action_radio(Action::WriteExternalToSlot),
                     row![
@@ -343,7 +379,8 @@ impl Application for NineSaves {
                         .width(Length::Fill),
                     row![
                         container(
-                            column![save_slot_to_external, write_slot_to_external].spacing(5)
+                            column![save_slot_to_external, write_slot_to_external, delete_slot]
+                                .spacing(5)
                         )
                         .width(Length::Fill),
                         container(column![write_external_to_slot, delete_external].spacing(5))
