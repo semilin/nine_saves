@@ -15,9 +15,12 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
     } else if cfg!(target_os = "macos") {
         bail!("I don't know where Nine Sols stores its save files on MacOS. Please open an issue on Github!");
     } else if cfg!(target_os = "linux") {
-        let mut path = base_dirs.data_dir().to_owned();
+        let data_path = base_dirs.data_dir().join("Steam");
+        let mut path = match data_path.exists() {
+            true => data_path.to_owned(),
+            false => base_dirs.home_dir().join(".steam").join("steam").to_owned(),
+        };
         path.extend(&[
-            "Steam",
             "steamapps",
             "compatdata",
             NS_ID,
