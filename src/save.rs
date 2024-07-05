@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use directories::BaseDirs;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,9 @@ fn save_directory(base_dirs: &BaseDirs) -> Result<PathBuf> {
         path.extend(&["AppData", "LocalLow", "RedCandleGames", "NineSols"]);
         path
     } else if cfg!(target_os = "macos") {
-        bail!("I don't know where Nine Sols stores its save files on MacOS. Please open an issue on Github!");
+        let mut path = base_dirs.data_dir().to_owned();
+        path.extend(&["RedCandleGames", "NineSols"]);
+        path
     } else if cfg!(target_os = "linux") {
         let data_path = base_dirs.data_dir().join("Steam");
         let mut path = match data_path.exists() {
