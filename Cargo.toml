@@ -34,3 +34,6 @@ installers = []
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 # Publish jobs to run in CI
 pr-run-mode = "plan"
+
+[build-dependencies]
+winresource = "0.1.17"
